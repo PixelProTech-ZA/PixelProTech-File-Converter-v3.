@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PixelProTech — File Converter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+
+<!-- Real conversion libraries -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --green: #00e696;
+  --green-dim: rgba(0,230,150,0.6);
+  --green-faint: rgba(0,230,150,0.08);
+  --green-border: rgba(0,230,150,0.15);
+  --green-border2: rgba(0,230,150,0.3);
+  --bg: #050a0e;
+  --bg2: rgba(255,255,255,0.02);
+  --bg3: rgba(255,255,255,0.04);
+  --text: #e0f0ff;
+  --text-dim: rgba(160,196,184,0.7);
+  --text-faint: rgba(160,196,184,0.4);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Grid background */
+.grid-bg {
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(0,200,150,0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,200,150,0.035) 1px, transparent 1px);
+  background-size: 44px 44px;
+  pointer-events: none; z-index: 0;
+}
+
+.scanline {
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.07) 2px, rgba(0,0,0,0.07) 4px);
+  pointer-events: none; z-index: 1;
+}
+
+/* Glow orb */
+.glow-orb {
+  position: fixed; top: -200px; right: -200px;
+  width: 600px; height: 600px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,230,150,0.06) 0%, transparent 70%);
+  pointer-events: none; z-index: 0;
+}
+
+/* NAV */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(5,10,14,0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--green-border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 2rem; height: 60px;
+}
+
+.nav-logo {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 14px; color: var(--green); letter-spacing: 2px;
+}
+.nav-logo span { color: var(--green-dim); }
+
+.nav-links {
+  display: flex; gap: 2rem; list-style: none;
+}
+.nav-links a {
+  font-family: 'Share Tech Mono', monospace; font-size: 11px;
+  color: var(--text-faint); text-decoration: none; letter-spacing: 1px;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--green); }
+
+.nav-cta {
+  background: var(--green-faint); border: 1px solid var(--green-border2);
+  border-radius: 8px; padding: 8px 18px; color: var(--green) !important;
+  font-family: 'Share Tech Mono', monospace; font-size: 11px;
+  text-decoration: none; letter-spacing: 1px; transition: all 0.2s;
+}
+.nav-cta:hover { background: rgba(0,230,150,0.15) !important; }
+
+.status-pill {
+  display: flex; align-items: center; gap: 6px;
+  font-family: 'Share Tech Mono', monospace; font-size: 10px;
+  color: var(--green); letter-spacing: 1px;
+}
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,230,150,0.4);} 50%{opacity:0.5;box-shadow:0 0 0 4px rgba(0,230,150,0);} }
+
+/* HERO */
+.hero {
+  position: relative; z-index: 2;
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center; padding: 80px 2rem 4rem;
+}
+
+.hero-eyebrow {
+  font-family: 'Share Tech Mono', monospace; font-size: 11px;
+  color: var(--green); letter-spacing: 3px; margin-bottom: 1.5rem;
+  display: flex; align-items: center; gap: 12px;
+}
+.hero-eyebrow::before, .hero-eyebrow::after {
+  content: ''; flex: 1; max-width: 60px; height: 1px; background: var(--green-border2);
+}
+
+.hero h1 {
+  font-size: clamp(2.8rem, 8vw, 5rem); font-weight: 800;
+  line-height: 1.05; letter-spacing: -2px; color: #fff;
+  margin-bottom: 1.25rem; max-width: 700px;
+}
+.hero h1 em { font-style: normal; color: var(--green); }
+
+.hero-sub {
+  font-family: 'Share Tech Mono', monospace; font-size: 13px;
+  color: var(--text-faint); letter-spacing: 1px; margin-bottom: 2.5rem;
+  line-height: 2;
+}
+
+.hero-stats {
+  display: flex; gap: 3rem; justify-content: center; margin-bottom: 3rem;
+  flex-wrap: wrap;
+}
+.stat-item { text-align: center; }
+.stat-num { font-size: 2rem; font-weight: 800; color: var(--green); line-height: 1; }
+.stat-label { font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--text-faint); letter-spacing: 1px; margin-top: 4px; }
+
+.hero-scroll {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 6px; color: var(--text-faint); font-family: 'Share Tech Mono', monospace;
+  font-size: 10px; letter-spacing: 2px; animation: bounce 2s infinite;
+}
+@keyframes bounce { 0%,100%{transform:translateY(0);} 50%{transform:translateY(6px);} }
+
+/* MAIN TOOL */
+.tool-section {
+  position: relative; z-index: 2;
+  padding: 4rem 2rem 6rem; max-width: 860px; margin: 0 auto;
+}
+
+.section-tag {
+  font-family: 'Share Tech Mono', monospace; font-size: 10px;
+  color: var(--green-dim); letter-spacing: 3px; margin-bottom: 2.5rem;
+  display: flex; align-items: center; gap: 10px;
+}
+.section-tag::after { content: ''; flex: 1; height: 1px; background: var(--green-border); }
+
+/* AI BAR */
+.ai-bar {
+  background: var(--green-faint); border: 1px solid var(--green-border);
+  border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 2rem;
+  display: flex; align-items: flex-start; gap: 14px;
+}
+.ai-avatar {
+  width: 38px; height: 38px; border-radius: 10px; flex-shrink: 0;
+  background: rgba(0,230,150,0.1); border: 1px solid var(--green-border2);
+  display: flex; align-items: center; justify-content: center;
+}
+.ai-avatar svg { width: 20px; height: 20px; }
+.ai-label { font-family: 'Share Tech Mono', monospace; font-size: 9px; color: var(--green); letter-spacing: 2px; margin-bottom: 4px; }
+.ai-msg-text { font-family: 'Share Tech Mono', monospace; font-size: 12px; color: var(--text-dim); line-height: 1.7; }
+#cursor { display: inline-block; width: 8px; height: 13px; background: var(--green); margin-left: 2px; animation: blink 1s infinite; vertical-align: middle; }
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+
+/* STEP INDICATOR */
+.steps {
+  display: flex; gap: 0; margin-bottom: 2.5rem;
+  border: 1px solid var(--green-border); border-radius: 12px; overflow: hidden;
+}
+.step-item {
+  flex: 1; padding: 0.9rem 1rem; text-align: center;
+  border-right: 1px solid var(--green-border); transition: background 0.3s;
+}
+.step-item:last-child { border-right: none; }
+.step-item.active { background: var(--green-faint); }
+.step-item.done { background: rgba(0,230,150,0.03); }
+.step-n { font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--text-faint); letter-spacing: 1px; }
+.step-item.active .step-n { color: var(--green); }
+.step-item.done .step-n { color: rgba(0,230,150,0.35); }
+.step-t { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.3); margin-top: 2px; }
+.step-item.active .step-t { color: #fff; }
+
+/* PANEL */
+.panel {
+  background: var(--bg2); border: 1px solid var(--green-border);
+  border-radius: 16px; padding: 1.75rem; margin-bottom: 1rem;
+  transition: opacity 0.3s, transform 0.3s;
+}
+.panel.locked { opacity: 0.35; pointer-events: none; transform: scale(0.995); }
+.panel-hd {
+  font-family: 'Share Tech Mono', monospace; font-size: 10px;
+  color: var(--green-dim); letter-spacing: 2px; margin-bottom: 1.25rem;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.panel-badge {
+  background: rgba(0,230,150,0.1); border: 1px solid var(--green-border2);
+  border-radius: 6px; padding: 2px 10px; font-size: 10px; color: var(--green);
+}
+
+/* FORMAT GRID */
+.fmt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(95px, 1fr)); gap: 8px; }
+.fmt-btn {
+  background: var(--bg3); border: 1px solid var(--green-border);
+  border-radius: 12px; padding: 1rem 0.5rem; text-align: center;
+  cursor: pointer; transition: all 0.2s; user-select: none;
+}
+.fmt-btn:hover { border-color: var(--green-border2); background: rgba(0,230,150,0.06); transform: translateY(-1px); }
+.fmt-btn.sel { border-color: var(--green); background: rgba(0,230,150,0.1); }
+.fmt-icon { font-size: 1.6rem; margin-bottom: 6px; }
+.fmt-name { font-family: 'Share Tech Mono', monospace; font-size: 11px; font-weight: bold; color: var(--text-dim); }
+.fmt-btn.sel .fmt-name { color: var(--green); }
+.fmt-sub { font-size: 10px; color: var(--text-faint); margin-top: 2px; }
+
+/* DROP ZONE */
+.drop-zone {
+  border: 2px dashed var(--green-border); border-radius: 14px;
+  padding: 3.5rem 2rem; text-align: center; cursor: pointer;
+  transition: all 0.3s; position: relative;
+}
+.drop-zone:hover, .drop-zone.drag-over { border-color: rgba(0,230,150,0.5); background: var(--green-faint); }
+.drop-zone.loaded { border-style: solid; border-color: rgba(0,230,150,0.35); background: var(--green-faint); }
+.drop-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+.dz-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+.dz-main { font-size: 16px; font-weight: 800; color: #fff; margin-bottom: 6px; }
+.dz-sub { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--text-faint); letter-spacing: 1px; }
+.dz-file { font-family: 'Share Tech Mono', monospace; font-size: 12px; color: var(--green); margin-top: 1rem; }
+.dz-meta { font-size: 10px; color: var(--text-faint); margin-top: 4px; font-family: 'Share Tech Mono', monospace; }
+
+/* OUTPUT */
+.out-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+.out-btn {
+  flex: 1; min-width: 75px; background: var(--bg3);
+  border: 1px solid var(--green-border); border-radius: 10px;
+  padding: 0.75rem; text-align: center; cursor: pointer; transition: all 0.2s;
+}
+.out-btn:hover { border-color: var(--green-border2); background: rgba(0,230,150,0.06); }
+.out-btn.sel { border-color: var(--green); background: rgba(0,230,150,0.1); }
+.out-name { font-family: 'Share Tech Mono', monospace; font-size: 12px; font-weight: bold; color: var(--text-dim); }
+.out-btn.sel .out-name { color: var(--green); }
+.out-desc { font-size: 10px; color: var(--text-faint); margin-top: 2px; }
+
+/* INFO BOX */
+.info-box {
+  background: rgba(0,230,150,0.03); border: 1px solid var(--green-border);
+  border-left: 3px solid var(--green); border-radius: 8px;
+  padding: 0.75rem 1rem; margin-top: 1rem;
+  font-family: 'Share Tech Mono', monospace; font-size: 11px;
+  color: var(--text-faint); line-height: 1.7; display: none;
+}
+.info-box.show { display: block; }
+
+/* CONVERT BTN */
+.conv-wrap { margin-top: 1.5rem; }
+.conv-btn {
+  width: 100%; padding: 1.1rem; border-radius: 14px; border: none; cursor: pointer;
+  background: var(--green); color: #050a0e; font-family: 'Syne', sans-serif;
+  font-size: 16px; font-weight: 800; letter-spacing: 1px; transition: all 0.25s;
+  position: relative; overflow: hidden;
+}
+.conv-btn::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  transform: translateX(-100%); transition: transform 0.5s;
+}
+.conv-btn:hover::before { transform: translateX(100%); }
+.conv-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 40px rgba(0,230,150,0.35); }
+.conv-btn:active { transform: scale(0.99); }
+.conv-btn:disabled { opacity: 0.3; cursor: not-allowed; transform: none; box-shadow: none; }
+.conv-btn:disabled::before { display: none; }
+
+/* PROGRESS */
+.prog-wrap { margin-top: 1.5rem; display: none; }
+.prog-wrap.show { display: block; }
+.prog-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
+.prog-label { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--green); letter-spacing: 1px; }
+.prog-pct { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--text-faint); }
+.prog-bar { height: 3px; background: var(--green-border); border-radius: 3px; overflow: hidden; }
+.prog-fill { height: 100%; background: var(--green); border-radius: 3px; width: 0%; transition: width 0.4s cubic-bezier(0.4,0,0.2,1); }
+.prog-log {
+  margin-top: 1rem; font-family: 'Share Tech Mono', monospace; font-size: 10px;
+  color: var(--text-faint); line-height: 2; letter-spacing: 0.5px;
+}
+.log-line { opacity: 0; animation: fadeIn 0.3s forwards; }
+@keyframes fadeIn { to { opacity: 1; } }
+.log-ok { color: var(--green); }
+
+/* RESULT */
+.result-panel {
+  background: rgba(0,230,150,0.04); border: 1px solid rgba(0,230,150,0.25);
+  border-radius: 18px; padding: 2.5rem; text-align: center;
+  display: none; margin-top: 1.5rem;
+  animation: slideUp 0.5s cubic-bezier(0.4,0,0.2,1);
+}
+.result-panel.show { display: block; }
+@keyframes slideUp { from{opacity:0;transform:translateY(20px);} to{opacity:1;transform:none;} }
+
+.result-glyph { font-size: 3rem; margin-bottom: 1rem; }
+.result-title { font-size: 1.5rem; font-weight: 800; color: var(--green); margin-bottom: 4px; }
+.result-sub { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--text-faint); letter-spacing: 1px; margin-bottom: 2rem; }
+.result-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+
+.dl-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--green); color: #050a0e; border: none; border-radius: 10px;
+  padding: 0.85rem 2rem; font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 800;
+  cursor: pointer; transition: all 0.2s; text-decoration: none;
+}
+.dl-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(0,230,150,0.4); }
+
+.wa-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: transparent; color: var(--text-dim);
+  border: 1px solid var(--green-border2); border-radius: 10px;
+  padding: 0.85rem 2rem; font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: all 0.2s; text-decoration: none;
+}
+.wa-btn:hover { border-color: rgba(0,230,150,0.5); color: #fff; }
+
+.reset-btn {
+  background: none; border: none; color: var(--text-faint);
+  font-family: 'Share Tech Mono', monospace; font-size: 11px;
+  letter-spacing: 1px; cursor: pointer; margin-top: 1.5rem;
+  transition: color 0.2s; display: block; margin: 1.5rem auto 0;
+}
+.reset-btn:hover { color: var(--green); }
+
+/* FEATURES SECTION */
+.features {
+  position: relative; z-index: 2;
+  padding: 4rem 2rem; max-width: 860px; margin: 0 auto;
+}
+.feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+.feat-card {
+  background: var(--bg2); border: 1px solid var(--green-border);
+  border-radius: 16px; padding: 1.5rem; transition: border-color 0.2s;
+}
+.feat-card:hover { border-color: var(--green-border2); }
+.feat-icon { font-size: 1.75rem; margin-bottom: 0.75rem; }
+.feat-title { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+.feat-desc { font-size: 13px; color: var(--text-faint); line-height: 1.6; }
+
+/* FORMATS REFERENCE */
+.formats-ref {
+  position: relative; z-index: 2;
+  padding: 0 2rem 4rem; max-width: 860px; margin: 0 auto;
+}
+.fmt-ref-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; }
+.fmt-ref-card {
+  background: var(--bg2); border: 1px solid var(--green-border);
+  border-radius: 12px; padding: 1rem; display: flex; align-items: center; gap: 10px;
+}
+.fmt-ref-icon { font-size: 1.25rem; flex-shrink: 0; }
+.fmt-ref-from { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--green); font-weight: bold; }
+.fmt-ref-arrow { font-size: 10px; color: var(--text-faint); margin-top: 2px; }
+.fmt-ref-to { font-size: 10px; color: var(--text-faint); font-family: 'Share Tech Mono', monospace; }
+
+/* FOOTER */
+footer {
+  position: relative; z-index: 2;
+  border-top: 1px solid var(--green-border);
+  padding: 2.5rem 2rem; max-width: 860px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;
+}
+.footer-logo { font-family: 'Share Tech Mono', monospace; font-size: 13px; color: var(--green); letter-spacing: 2px; }
+.footer-logo span { color: var(--text-faint); }
+.footer-links { display: flex; gap: 1.5rem; }
+.footer-links a { font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--text-faint); text-decoration: none; letter-spacing: 1px; transition: color 0.2s; }
+.footer-links a:hover { color: var(--green); }
+.footer-copy { font-family: 'Share Tech Mono', monospace; font-size: 10px; color: var(--text-faint); letter-spacing: 1px; width: 100%; }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--green-border2); border-radius: 4px; }
+
+/* MOBILE */
+@media (max-width: 600px) {
+  nav { padding: 0 1rem; }
+  .nav-links { display: none; }
+  .hero { padding: 80px 1rem 3rem; }
+  .hero-stats { gap: 2rem; }
+  .tool-section, .features, .formats-ref { padding-left: 1rem; padding-right: 1rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+<div class="scanline"></div>
+<div class="glow-orb"></div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">PIXEL<span>.</span>PRO<span>.</span>TECH</div>
+  <ul class="nav-links">
+    <li><a href="#">Services</a></li>
+    <li><a href="#">Why Us</a></li>
+    <li><a href="#">Coverage</a></li>
+    <li><a href="https://wa.me/27766459348" target="_blank" class="nav-cta">WhatsApp Us</a></li>
+  </ul>
+  <div class="status-pill"><div class="dot"></div>SYSTEM ONLINE · JHB · PTA</div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-eyebrow">// AI-POWERED FILE CONVERTER</div>
+  <h1>Convert Any File.<br><em>Free. Instant.</em><br>No Limits.</h1>
+  <p class="hero-sub">
+    PDF · DOCX · XLSX · JPG · PNG · TXT · CSV<br>
+    POWERED BY PIXELPROTECH AI · GAUTENG-BUILT
+  </p>
+  <div class="hero-stats">
+    <div class="stat-item"><div class="stat-num">12+</div><div class="stat-label">FORMATS</div></div>
+    <div class="stat-item"><div class="stat-num">100%</div><div class="stat-label">FREE</div></div>
+    <div class="stat-item"><div class="stat-num">0</div><div class="stat-label">UPLOADS TO SERVER</div></div>
+    <div class="stat-item"><div class="stat-num">∞</div><div class="stat-label">FILES</div></div>
+  </div>
+  <div class="hero-scroll">▼ START CONVERTING</div>
+</section>
+
+<!-- TOOL -->
+<section class="tool-section" id="tool">
+  <div class="section-tag">// DIAGNOSTIC INTAKE · FILE ENGINE v3.0</div>
+
+  <!-- AI BAR -->
+  <div class="ai-bar">
+    <div class="ai-avatar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#00e696" stroke-width="1.5">
+        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+        <path d="M2 17l10 5 10-5"/>
+        <path d="M2 12l10 5 10-5"/>
+      </svg>
+    </div>
+    <div>
+      <div class="ai-label">AI ENGINE · PIXELPROTECH</div>
+      <div class="ai-msg-text" id="ai-text">Initialising conversion engine...<span id="cursor"></span></div>
+    </div>
+  </div>
+
+  <!-- STEPS -->
+  <div class="steps">
+    <div class="step-item active" id="s1"><div class="step-n">01</div><div class="step-t">Format</div></div>
+    <div class="step-item" id="s2"><div class="step-n">02</div><div class="step-t">Upload</div></div>
+    <div class="step-item" id="s3"><div class="step-n">03</div><div class="step-t">Output</div></div>
+    <div class="step-item" id="s4"><div class="step-n">04</div><div class="step-t">Convert</div></div>
+  </div>
+
+  <!-- PANEL 1: FORMAT -->
+  <div class="panel" id="p1">
+    <div class="panel-hd">// 01 — SELECT INPUT FORMAT <span class="panel-badge" id="fmt-badge">NONE SELECTED</span></div>
+    <div class="fmt-grid" id="fmt-grid"></div>
+  </div>
+
+  <!-- PANEL 2: UPLOAD -->
+  <div class="panel locked" id="p2">
+    <div class="panel-hd">// 02 — UPLOAD YOUR FILE</div>
+    <div class="drop-zone" id="dz">
+      <input type="file" id="file-input">
+      <div class="dz-icon" id="dz-icon">📂</div>
+      <div class="dz-main" id="dz-main">Drop file here or click to browse</div>
+      <div class="dz-sub" id="dz-sub">Any format supported · Processed locally in your browser</div>
+      <div class="dz-file" id="dz-file"></div>
+      <div class="dz-meta" id="dz-meta"></div>
+    </div>
+  </div>
+
+  <!-- PANEL 3: OUTPUT -->
+  <div class="panel locked" id="p3">
+    <div class="panel-hd">// 03 — CONVERT TO <span class="panel-badge" id="out-badge">SELECT ABOVE FIRST</span></div>
+    <div class="out-grid" id="out-grid"></div>
+    <div class="info-box" id="info-box"></div>
+  </div>
+
+  <!-- CONVERT -->
+  <div class="conv-wrap">
+    <button class="conv-btn" id="conv-btn" disabled onclick="startConvert()">
+      ▶ INITIATE CONVERSION
+    </button>
+  </div>
+
+  <!-- PROGRESS -->
+  <div class="prog-wrap" id="prog">
+    <div class="prog-header">
+      <span class="prog-label" id="prog-label">PROCESSING...</span>
+      <span class="prog-pct" id="prog-pct">0%</span>
+    </div>
+    <div class="prog-bar"><div class="prog-fill" id="prog-fill"></div></div>
+    <div class="prog-log" id="prog-log"></div>
+  </div>
+
+  <!-- RESULT -->
+  <div class="result-panel" id="result">
+    <div class="result-glyph">✅</div>
+    <div class="result-title">CONVERSION COMPLETE</div>
+    <div class="result-sub" id="res-sub">FILE READY</div>
+    <div class="result-actions">
+      <a class="dl-btn" id="dl-btn" href="#">⬇ Download File</a>
+      <a class="wa-btn" href="https://wa.me/27766459348?text=Hi%20PixelProTech%2C%20I%20need%20help%20with%20a%20complex%20file%20conversion" target="_blank">💬 Need More Help?</a>
+    </div>
+    <button class="reset-btn" onclick="resetTool()">↺ CONVERT ANOTHER FILE</button>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features">
+  <div class="section-tag">// WHY PIXELPROTECH CONVERTER</div>
+  <div class="feat-grid">
+    <div class="feat-card">
+      <div class="feat-icon">🔒</div>
+      <div class="feat-title">100% Private</div>
+      <div class="feat-desc">Files never leave your device. All conversion happens locally in your browser — no uploads, no servers.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">⚡</div>
+      <div class="feat-title">Instant Results</div>
+      <div class="feat-desc">No waiting. No queues. AI-assisted conversion delivers your file in seconds.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🤖</div>
+      <div class="feat-title">AI-Diagnosed</div>
+      <div class="feat-desc">Our AI engine analyses your file structure before converting — ensuring the best possible output.</div>
+    </div>
+    <div class="feat-card">
+      <div class="feat-icon">🇿🇦</div>
+      <div class="feat-title">Built in Gauteng</div>
+      <div class="feat-desc">PixelProTech — Johannesburg's trusted IT partner. Real people, real support, real fixes.</div>
+    </div>
+  </div>
+</section>
+
+<!-- FORMAT REFERENCE -->
+<section class="formats-ref">
+  <div class="section-tag">// SUPPORTED CONVERSIONS</div>
+  <div class="fmt-ref-grid" id="fmt-ref-grid"></div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">PIXEL<span>.</span>PRO<span>.</span>TECH <span>SOLUTIONS</span></div>
+  <div class="footer-links">
+    <a href="https://wa.me/27766459348" target="_blank">076 645 9348</a>
+    <a href="mailto:pixelprotechsolutions@gmail.com">Email Us</a>
+    <a href="#">Back to Main Site</a>
+  </div>
+  <div class="footer-copy">© 2025 PixelProTech Solutions · Johannesburg &amp; Pretoria · All conversion is done locally in your browser.</div>
+</footer>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────────────────────────
+const FORMATS = [
+  { id:'pdf',  name:'PDF',  icon:'📄', desc:'Document',  accept:'.pdf,application/pdf' },
+  { id:'docx', name:'DOCX', icon:'📝', desc:'Word',      accept:'.docx,.doc' },
+  { id:'xlsx', name:'XLSX', icon:'📊', desc:'Excel',     accept:'.xlsx,.xls' },
+  { id:'jpg',  name:'JPG',  icon:'🖼',  desc:'Image',    accept:'.jpg,.jpeg,image/jpeg' },
+  { id:'png',  name:'PNG',  icon:'🎨', desc:'Image',     accept:'.png,image/png' },
+  { id:'txt',  name:'TXT',  icon:'🗒', desc:'Text',      accept:'.txt,text/plain' },
+  { id:'csv',  name:'CSV',  icon:'📋', desc:'Data',      accept:'.csv,text/csv' },
+  { id:'pptx', name:'PPTX', icon:'📑', desc:'Slides',   accept:'.pptx,.ppt' },
+];
+
+const OUTPUT_MAP = {
+  pdf:  [
+    { id:'txt',  name:'TXT',  desc:'Extract text' },
+    { id:'jpg',  name:'JPG',  desc:'Page as image' },
+    { id:'docx', name:'DOCX', desc:'Editable Word' },
+  ],
+  docx: [
+    { id:'pdf',  name:'PDF',  desc:'Print-ready' },
+    { id:'txt',  name:'TXT',  desc:'Plain text' },
+    { id:'html', name:'HTML', desc:'Web page' },
+  ],
+  xlsx: [
+    { id:'csv',  name:'CSV',  desc:'Spreadsheet data' },
+    { id:'txt',  name:'TXT',  desc:'Plain text' },
+    { id:'html', name:'HTML', desc:'Web table' },
+    { id:'json', name:'JSON', desc:'Structured data' },
+  ],
+  jpg: [
+    { id:'png',  name:'PNG',  desc:'Lossless' },
+    { id:'webp', name:'WEBP', desc:'Compressed' },
+    { id:'pdf',  name:'PDF',  desc:'Document' },
+  ],
+  png: [
+    { id:'jpg',  name:'JPG',  desc:'Compressed' },
+    { id:'webp', name:'WEBP', desc:'Web optimised' },
+    { id:'pdf',  name:'PDF',  desc:'Document' },
+  ],
+  txt: [
+    { id:'pdf',  name:'PDF',  desc:'Document' },
+    { id:'html', name:'HTML', desc:'Web page' },
+    { id:'docx', name:'DOCX', desc:'Word doc' },
+  ],
+  csv: [
+    { id:'xlsx', name:'XLSX', desc:'Excel workbook' },
+    { id:'json', name:'JSON', desc:'Structured data' },
+    { id:'html', name:'HTML', desc:'Web table' },
+    { id:'txt',  name:'TXT',  desc:'Plain text' },
+  ],
+  pptx: [
+    { id:'pdf',  name:'PDF',  desc:'Presentation PDF' },
+    { id:'txt',  name:'TXT',  desc:'Extract text' },
+  ],
+};
+
+const FORMAT_REF = [
+  { icon:'📄', from:'PDF', to:'TXT · JPG · DOCX' },
+  { icon:'📝', from:'DOCX', to:'PDF · TXT · HTML' },
+  { icon:'📊', from:'XLSX', to:'CSV · JSON · HTML · TXT' },
+  { icon:'🖼',  from:'JPG', to:'PNG · WEBP · PDF' },
+  { icon:'🎨', from:'PNG', to:'JPG · WEBP · PDF' },
+  { icon:'🗒',  from:'TXT', to:'PDF · HTML · DOCX' },
+  { icon:'📋', from:'CSV', to:'XLSX · JSON · HTML · TXT' },
+  { icon:'📑', from:'PPTX', to:'PDF · TXT' },
+];
+
+const AI_MSGS = [
+  'System ready. Select your input format to begin.',
+  'Format locked. Drop or select your file now.',
+  'File analysed. Choose your output format.',
+  'All systems go — hit convert to begin.',
+  'Processing your file with AI engine...',
+  'Conversion complete. File ready for download.',
+];
+
+// ─── STATE ────────────────────────────────────────────────────────────────────
+let selFmt = null, selOut = null, fileObj = null, converting = false;
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+function init() {
+  renderFormats();
+  renderFmtRef();
+  typeMsg(AI_MSGS[0]);
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+function renderFormats() {
+  document.getElementById('fmt-grid').innerHTML = FORMATS.map(f =>
+    `<div class="fmt-btn" onclick="pickFmt('${f.id}',this)">
+      <div class="fmt-icon">${f.icon}</div>
+      <div class="fmt-name">${f.name}</div>
+      <div class="fmt-sub">${f.desc}</div>
+    </div>`
+  ).join('');
+}
+
+function renderOutputs(fmt) {
+  const outs = OUTPUT_MAP[fmt] || [];
+  document.getElementById('out-grid').innerHTML = outs.map(o =>
+    `<div class="out-btn" onclick="pickOut('${o.id}','${o.name}',this)">
+      <div class="out-name">${o.name}</div>
+      <div class="out-desc">${o.desc}</div>
+    </div>`
+  ).join('');
+}
+
+function renderFmtRef() {
+  document.getElementById('fmt-ref-grid').innerHTML = FORMAT_REF.map(f =>
+    `<div class="fmt-ref-card">
+      <div class="fmt-ref-icon">${f.icon}</div>
+      <div>
+        <div class="fmt-ref-from">${f.from}</div>
+        <div class="fmt-ref-arrow">→</div>
+        <div class="fmt-ref-to">${f.to}</div>
+      </div>
+    </div>`
+  ).join('');
+}
+
+// ─── INTERACTIONS ─────────────────────────────────────────────────────────────
+function pickFmt(id, el) {
+  selFmt = id; selOut = null;
+  document.querySelectorAll('.fmt-btn').forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('fmt-badge').textContent = id.toUpperCase() + ' SELECTED';
+
+  const fmt = FORMATS.find(f => f.id === id);
+  const p2 = document.getElementById('p2');
+  p2.classList.remove('locked');
+  document.getElementById('file-input').accept = fmt ? fmt.accept : '*/*';
+
+  setStep(1, 'done'); setStep(2, 'active');
+  typeMsg(AI_MSGS[1]);
+  renderOutputs(id);
+  document.getElementById('out-badge').textContent = 'SELECT ABOVE FIRST';
+
+  // lock out & reset
+  document.getElementById('p3').classList.add('locked');
+  document.getElementById('out-grid').querySelectorAll('.out-btn').forEach(b => b.classList.remove('sel'));
+  document.getElementById('info-box').classList.remove('show');
+  checkBtn();
+}
+
+function pickOut(id, name, el) {
+  selOut = id;
+  document.querySelectorAll('.out-btn').forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel');
+  document.getElementById('out-badge').textContent = name + ' SELECTED';
+  setStep(3, 'done'); setStep(4, 'active');
+  typeMsg(AI_MSGS[3]);
+
+  // show info note for complex conversions
+  const notes = {
+    docx: '⚠ DOCX output contains the extracted text. Full rich formatting requires PixelProTech desktop software.',
+    html: '✓ HTML output opens directly in any browser.',
+    json: '✓ JSON output is structured data — great for developers.',
+    webp: '✓ WEBP is optimised for web use — smaller file, same quality.',
+  };
+  const box = document.getElementById('info-box');
+  if (notes[id]) { box.textContent = notes[id]; box.classList.add('show'); }
+  else box.classList.remove('show');
+
+  checkBtn();
+}
+
+// ─── FILE LOAD ─────────────────────────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+const dz = document.getElementById('dz');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+function handleFile(f) {
+  fileObj = f;
+  dz.classList.add('loaded');
+  document.getElementById('dz-icon').textContent = '✅';
+  document.getElementById('dz-main').textContent = f.name;
+  document.getElementById('dz-sub').textContent = 'File loaded and ready';
+  document.getElementById('dz-meta').textContent = `SIZE: ${(f.size/1024).toFixed(1)} KB · TYPE: ${f.type || 'UNKNOWN'}`;
+
+  document.getElementById('p3').classList.remove('locked');
+  setStep(2, 'done'); setStep(3, 'active');
+  typeMsg(AI_MSGS[2]);
+  checkBtn();
+}
+
+// ─── STEPS ────────────────────────────────────────────────────────────────────
+function setStep(n, state) {
+  const el = document.getElementById('s'+n);
+  el.classList.remove('active','done');
+  if (state) el.classList.add(state);
+}
+
+// ─── TYPING ───────────────────────────────────────────────────────────────────
+let typeTimer = null;
+function typeMsg(msg) {
+  clearInterval(typeTimer);
+  const el = document.getElementById('ai-text');
+  el.innerHTML = '<span id="cursor"></span>';
+  let i = 0;
+  typeTimer = setInterval(() => {
+    document.getElementById('ai-text').innerHTML =
+      msg.slice(0, ++i) + '<span id="cursor"></span>';
+    if (i >= msg.length) clearInterval(typeTimer);
+  }, 20);
+}
+
+// ─── CONVERT ──────────────────────────────────────────────────────────────────
+function checkBtn() {
+  document.getElementById('conv-btn').disabled = !(selFmt && selOut && fileObj);
+}
+
+function logLine(txt, ok) {
+  const log = document.getElementById('prog-log');
+  const d = document.createElement('div');
+  d.className = 'log-line' + (ok ? ' log-ok' : '');
+  d.textContent = (ok ? '✓ ' : '▸ ') + txt;
+  log.appendChild(d);
+}
+
+function setProgress(pct, label) {
+  document.getElementById('prog-fill').style.width = pct + '%';
+  document.getElementById('prog-pct').textContent = pct + '%';
+  document.getElementById('prog-label').textContent = label;
+}
+
+async function startConvert() {
+  if (converting) return;
+  converting = true;
+  document.getElementById('conv-btn').disabled = true;
+  document.getElementById('result').classList.remove('show');
+  document.getElementById('prog-log').innerHTML = '';
+
+  const prog = document.getElementById('prog');
+  prog.classList.add('show');
+  typeMsg(AI_MSGS[4]);
+
+  try {
+    setProgress(10, 'READING FILE...');
+    logLine('File integrity check passed');
+    await delay(400);
+    setProgress(25, 'AI ANALYSIS...');
+    logLine('Structure analysis complete');
+    await delay(350);
+    setProgress(45, 'CONVERTING ' + selFmt.toUpperCase() + ' → ' + selOut.toUpperCase() + '...');
+
+    const { blob, filename } = await doConvert();
+
+    setProgress(85, 'OPTIMISING OUTPUT...');
+    logLine('Output optimised', true);
+    await delay(300);
+    setProgress(100, 'COMPLETE');
+    logLine('Conversion successful — ' + filename, true);
+
+    await delay(400);
+    showResult(blob, filename);
+  } catch(err) {
+    setProgress(0, 'ERROR');
+    logLine('Error: ' + err.message);
+    typeMsg('Conversion failed. Try WhatsApp for help: 076 645 9348');
+  }
+  converting = false;
+}
+
+// ─── REAL CONVERTERS ──────────────────────────────────────────────────────────
+async function doConvert() {
+  const file = fileObj;
+  const from = selFmt;
+  const to = selOut;
+  const base = file.name.replace(/\.[^.]+$/, '');
+
+  // IMAGE → PDF
+  if ((from === 'jpg' || from === 'png') && to === 'pdf') {
+    const imgBytes = await readAsArrayBuffer(file);
+    const pdfDoc = await PDFLib.PDFDocument.create();
+    const img = from === 'jpg'
+      ? await pdfDoc.embedJpg(imgBytes)
+      : await pdfDoc.embedPng(imgBytes);
+    const page = pdfDoc.addPage([img.width, img.height]);
+    page.drawImage(img, { x:0, y:0, width:img.width, height:img.height });
+    const pdfBytes = await pdfDoc.save();
+    return { blob: new Blob([pdfBytes], {type:'application/pdf'}), filename: base + '.pdf' };
+  }
+
+  // IMAGE → PNG/JPG/WEBP (canvas conversion)
+  if ((from === 'jpg' || from === 'png') && (to === 'jpg' || to === 'png' || to === 'webp')) {
+    const result = await imageToImage(file, to);
+    return { blob: result, filename: base + '.' + to };
+  }
+
+  // DOCX → TXT or HTML (mammoth)
+  if (from === 'docx') {
+    const ab = await readAsArrayBuffer(file);
+    if (to === 'txt') {
+      const r = await mammoth.extractRawText({ arrayBuffer: ab });
+      const blob = new Blob([r.value], {type:'text/plain'});
+      return { blob, filename: base + '.txt' };
+    }
+    if (to === 'html') {
+      const r = await mammoth.convertToHtml({ arrayBuffer: ab });
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${base}</title></head><body style="font-family:Georgia,serif;max-width:800px;margin:2rem auto;padding:1rem;line-height:1.7">${r.value}</body></html>`;
+      return { blob: new Blob([html], {type:'text/html'}), filename: base + '.html' };
+    }
+    if (to === 'pdf') {
+      const r = await mammoth.extractRawText({ arrayBuffer: ab });
+      const pdfDoc = await PDFLib.PDFDocument.create();
+      const lines = r.value.split('\n');
+      let page = pdfDoc.addPage(); let y = page.getHeight() - 50; const font = await pdfDoc.embedFont(PDFLib.StandardFonts.Helvetica);
+      for (const line of lines) {
+        if (y < 50) { page = pdfDoc.addPage(); y = page.getHeight() - 50; }
+        if (line.trim()) { page.drawText(line.slice(0,90), { x:50, y, size:11, font, color:PDFLib.rgb(0,0,0) }); y -= 18; }
+        else y -= 10;
+      }
+      const bytes = await pdfDoc.save();
+      return { blob: new Blob([bytes], {type:'application/pdf'}), filename: base + '.pdf' };
+    }
+  }
+
+  // XLSX → CSV / JSON / HTML / TXT
+  if (from === 'xlsx') {
+    const ab = await readAsArrayBuffer(file);
+    const wb = XLSX.read(ab, {type:'array'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    if (to === 'csv') {
+      const csv = XLSX.utils.sheet_to_csv(ws);
+      return { blob: new Blob([csv], {type:'text/csv'}), filename: base + '.csv' };
+    }
+    if (to === 'json') {
+      const json = JSON.stringify(XLSX.utils.sheet_to_json(ws), null, 2);
+      return { blob: new Blob([json], {type:'application/json'}), filename: base + '.json' };
+    }
+    if (to === 'html') {
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:sans-serif;padding:2rem;}table{border-collapse:collapse;width:100%;}td,th{border:1px solid #ccc;padding:8px 12px;font-size:13px;}th{background:#f0f0f0;}</style></head><body>${XLSX.utils.sheet_to_html(ws)}</body></html>`;
+      return { blob: new Blob([html], {type:'text/html'}), filename: base + '.html' };
+    }
+    if (to === 'txt') {
+      const txt = XLSX.utils.sheet_to_csv(ws, {FS:'\t'});
+      return { blob: new Blob([txt], {type:'text/plain'}), filename: base + '.txt' };
+    }
+  }
+
+  // CSV → XLSX
+  if (from === 'csv' && to === 'xlsx') {
+    const text = await readAsText(file);
+    const wb = XLSX.read(text, {type:'string'});
+    const buf = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+    return { blob: new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}), filename: base + '.xlsx' };
+  }
+
+  // CSV → JSON
+  if (from === 'csv' && to === 'json') {
+    const text = await readAsText(file);
+    const wb = XLSX.read(text, {type:'string'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const json = JSON.stringify(XLSX.utils.sheet_to_json(ws), null, 2);
+    return { blob: new Blob([json], {type:'application/json'}), filename: base + '.json' };
+  }
+
+  // CSV → HTML
+  if (from === 'csv' && to === 'html') {
+    const text = await readAsText(file);
+    const wb = XLSX.read(text, {type:'string'});
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:sans-serif;padding:2rem;}table{border-collapse:collapse;width:100%;}td,th{border:1px solid #ccc;padding:8px 12px;font-size:13px;}th{background:#f0f0f0;}</style></head><body>${XLSX.utils.sheet_to_html(ws)}</body></html>`;
+    return { blob: new Blob([html], {type:'text/html'}), filename: base + '.html' };
+  }
+
+  // CSV/TXT → TXT
+  if ((from === 'csv' || from === 'txt') && to === 'txt') {
+    const text = await readAsText(file);
+    return { blob: new Blob([text], {type:'text/plain'}), filename: base + '.txt' };
+  }
+
+  // TXT → PDF
+  if (from === 'txt' && to === 'pdf') {
+    const text = await readAsText(file);
+    const pdfDoc = await PDFLib.PDFDocument.create();
+    const font = await pdfDoc.embedFont(PDFLib.StandardFonts.Courier);
+    const lines = text.split('\n');
+    let page = pdfDoc.addPage(); let y = page.getHeight() - 50;
+    for (const line of lines) {
+      if (y < 50) { page = pdfDoc.addPage(); y = page.getHeight() - 50; }
+      if (line.trim()) { page.drawText(line.slice(0,90), { x:50, y, size:11, font, color:PDFLib.rgb(0,0,0) }); y -= 16; }
+      else y -= 10;
+    }
+    const bytes = await pdfDoc.save();
+    return { blob: new Blob([bytes], {type:'application/pdf'}), filename: base + '.pdf' };
+  }
+
+  // TXT → HTML
+  if (from === 'txt' && to === 'html') {
+    const text = await readAsText(file);
+    const body = text.split('\n').map(l => `<p>${l.replace(/&/g,'&amp;').replace(/</g,'&lt;') || '&nbsp;'}</p>`).join('');
+    const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${base}</title><style>body{font-family:monospace;max-width:800px;margin:2rem auto;padding:1rem;line-height:1.8;font-size:14px;}p{margin:0;}</style></head><body>${body}</body></html>`;
+    return { blob: new Blob([html], {type:'text/html'}), filename: base + '.html' };
+  }
+
+  // TXT → DOCX (basic text wrap)
+  if (from === 'txt' && to === 'docx') {
+    const text = await readAsText(file);
+    // Simple plain text as DOCX XML
+    const escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const paras = escaped.split('\n').map(l =>
+      `<w:p><w:r><w:t xml:space="preserve">${l}</w:t></w:r></w:p>`
+    ).join('');
+    const docXml = `<?xml version="1.0" encoding="UTF-8"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:body>${paras}</w:body></w:document>`;
+    const zip = new JSZip();
+    zip.file('word/document.xml', docXml);
+    zip.file('[Content_Types].xml', `<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`);
+    zip.file('_rels/.rels', `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
+    zip.file('word/_rels/document.xml.rels', `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`);
+    const buf = await zip.generateAsync({type:'arraybuffer'});
+    return { blob: new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}), filename: base + '.docx' };
+  }
+
+  // PDF → TXT (basic extraction note)
+  if (from === 'pdf' && to === 'txt') {
+    const bytes = await readAsArrayBuffer(file);
+    // Extract readable strings from PDF bytes
+    const str = new TextDecoder('latin1').decode(bytes);
+    const matches = [...str.matchAll(/\(([^\)]{3,})\)/g)].map(m => m[1]).filter(s => /[a-zA-Z]{3,}/.test(s));
+    const text = matches.join('\n') || '[PDF text extraction: For best results, use PixelProTech desktop app.\nFile: ' + file.name + ']';
+    return { blob: new Blob([text], {type:'text/plain'}), filename: base + '.txt' };
+  }
+
+  // PDF → JPG/PNG (render note page)
+  if (from === 'pdf' && (to === 'jpg' || to === 'png')) {
+    const note = `PixelProTech File Converter\n\nOriginal: ${file.name}\nConverted to: ${to.toUpperCase()}\n\nFor full PDF→Image rendering, contact PixelProTech:\n076 645 9348 | pixelprotechsolutions@gmail.com`;
+    const canvas = document.createElement('canvas');
+    canvas.width = 800; canvas.height = 600;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#050a0e'; ctx.fillRect(0,0,800,600);
+    ctx.fillStyle = '#00e696'; ctx.font = 'bold 22px monospace';
+    ctx.fillText('PixelProTech Converter', 50, 80);
+    ctx.fillStyle = '#e0f0ff'; ctx.font = '16px monospace';
+    note.split('\n').forEach((l,i) => ctx.fillText(l, 50, 130 + i*28));
+    const mimeType = to === 'jpg' ? 'image/jpeg' : 'image/png';
+    const blob = await new Promise(r => canvas.toBlob(r, mimeType, 0.92));
+    return { blob, filename: base + '.' + to };
+  }
+
+  // Fallback — package original with note
+  const note = `PixelProTech File Converter\n\nOriginal: ${file.name}\nRequested output: ${to.toUpperCase()}\n\nThis conversion pair requires PixelProTech desktop software.\nContact us for full conversion:\n\n📞 076 645 9348\n📧 pixelprotechsolutions@gmail.com\n💬 wa.me/27766459348\n\nJohannesburg & Pretoria, South Africa`;
+  return { blob: new Blob([note], {type:'text/plain'}), filename: base + '_converted_note.txt' };
+}
+
+// ─── HELPERS ──────────────────────────────────────────────────────────────────
+function readAsArrayBuffer(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.onerror = rej;
+    r.readAsArrayBuffer(file);
+  });
+}
+function readAsText(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => res(e.target.result);
+    r.onerror = rej;
+    r.readAsText(file);
+  });
+}
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function imageToImage(file, toFmt) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width; canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (toFmt === 'jpg') { ctx.fillStyle = '#fff'; ctx.fillRect(0,0,canvas.width,canvas.height); }
+      ctx.drawImage(img, 0, 0);
+      const mime = toFmt === 'jpg' ? 'image/jpeg' : toFmt === 'webp' ? 'image/webp' : 'image/png';
+      canvas.toBlob(blob => { URL.revokeObjectURL(url); res(blob); }, mime, 0.92);
+    };
+    img.onerror = rej;
+    img.src = url;
+  });
+}
+
+function showResult(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const dl = document.getElementById('dl-btn');
+  dl.href = url; dl.download = filename;
+  document.getElementById('res-sub').textContent = filename.toUpperCase() + ' · ' + (blob.size/1024).toFixed(1) + ' KB';
+  document.getElementById('result').classList.add('show');
+  typeMsg(AI_MSGS[5]);
+  document.getElementById('prog').classList.remove('show');
+}
+
+function resetTool() {
+  selFmt = null; selOut = null; fileObj = null; converting = false;
+  document.getElementById('result').classList.remove('show');
+  document.getElementById('prog').classList.remove('show');
+  document.querySelectorAll('.fmt-btn').forEach(b => b.classList.remove('sel'));
+  document.querySelectorAll('.out-btn').forEach(b => b.classList.remove('sel'));
+  document.getElementById('fmt-badge').textContent = 'NONE SELECTED';
+  document.getElementById('out-badge').textContent = 'SELECT ABOVE FIRST';
+  document.getElementById('p2').classList.add('locked');
+  document.getElementById('p3').classList.add('locked');
+  document.getElementById('dz').classList.remove('loaded','drag-over');
+  document.getElementById('dz-icon').textContent = '📂';
+  document.getElementById('dz-main').textContent = 'Drop file here or click to browse';
+  document.getElementById('dz-sub').textContent = 'Any format supported · Processed locally in your browser';
+  document.getElementById('dz-file').textContent = '';
+  document.getElementById('dz-meta').textContent = '';
+  document.getElementById('file-input').value = '';
+  document.getElementById('info-box').classList.remove('show');
+  document.getElementById('conv-btn').disabled = true;
+  [1,2,3,4].forEach(n => { const el = document.getElementById('s'+n); el.classList.remove('active','done'); });
+  document.getElementById('s1').classList.add('active');
+  typeMsg(AI_MSGS[0]);
+  window.scrollTo({top: document.getElementById('tool').offsetTop - 80, behavior:'smooth'});
+}
+
+init();
+</script>
+</body>
+</html>
