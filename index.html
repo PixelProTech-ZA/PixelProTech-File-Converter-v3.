@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
+<link rel="preconnect" href="https://fonts.googleapis.com">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PixelProTech — File Converter</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
 
 <!-- Real conversion libraries -->
@@ -416,7 +416,7 @@ footer {
     <li><a href="#">Services</a></li>
     <li><a href="#">Why Us</a></li>
     <li><a href="#">Coverage</a></li>
-    <li><a href="https://wa.me/27766459348" target="_blank" class="nav-cta">WhatsApp Us</a></li>
+    <li><a href="https://wa.me/27651971461" target="_blank" class="nav-cta">WhatsApp Us</a></li>
   </ul>
   <div class="status-pill"><div class="dot"></div>SYSTEM ONLINE · JHB · PTA</div>
 </nav>
@@ -515,7 +515,7 @@ footer {
     <div class="result-sub" id="res-sub">FILE READY</div>
     <div class="result-actions">
       <a class="dl-btn" id="dl-btn" href="#">⬇ Download File</a>
-      <a class="wa-btn" href="https://wa.me/27766459348?text=Hi%20PixelProTech%2C%20I%20need%20help%20with%20a%20complex%20file%20conversion" target="_blank">💬 Need More Help?</a>
+      <a class="wa-btn" href="https://wa.me/27651971461?text=Hi%20PixelProTech%2C%20I%20need%20help%20with%20a%20complex%20file%20conversion" target="_blank">💬 Need More Help?</a>
     </div>
     <button class="reset-btn" onclick="resetTool()">↺ CONVERT ANOTHER FILE</button>
   </div>
@@ -558,7 +558,7 @@ footer {
 <footer>
   <div class="footer-logo">PIXEL<span>.</span>PRO<span>.</span>TECH <span>SOLUTIONS</span></div>
   <div class="footer-links">
-    <a href="https://wa.me/27766459348" target="_blank">076 645 9348</a>
+    <a href="https://wa.me/27651971461" target="_blank">065 197 1461</a>
     <a href="mailto:pixelprotechsolutions@gmail.com">Email Us</a>
     <a href="#">Back to Main Site</a>
   </div>
@@ -831,7 +831,7 @@ async function startConvert() {
   } catch(err) {
     setProgress(0, 'ERROR');
     logLine('Error: ' + err.message);
-    typeMsg('Conversion failed. Try WhatsApp for help: 076 645 9348');
+    typeMsg('Conversion failed. Try WhatsApp for help: 065 197 1461');
   }
   converting = false;
 }
@@ -1001,7 +1001,7 @@ async function doConvert() {
 
   // PDF → JPG/PNG (render note page)
   if (from === 'pdf' && (to === 'jpg' || to === 'png')) {
-    const note = `PixelProTech File Converter\n\nOriginal: ${file.name}\nConverted to: ${to.toUpperCase()}\n\nFor full PDF→Image rendering, contact PixelProTech:\n076 645 9348 | pixelprotechsolutions@gmail.com`;
+    const note = `PixelProTech File Converter\n\nOriginal: ${file.name}\nConverted to: ${to.toUpperCase()}\n\nFor full PDF→Image rendering, contact PixelProTech:\n065 197 1461 | pixelprotechsolutions@gmail.com`;
     const canvas = document.createElement('canvas');
     canvas.width = 800; canvas.height = 600;
     const ctx = canvas.getContext('2d');
@@ -1016,7 +1016,7 @@ async function doConvert() {
   }
 
   // Fallback — package original with note
-  const note = `PixelProTech File Converter\n\nOriginal: ${file.name}\nRequested output: ${to.toUpperCase()}\n\nThis conversion pair requires PixelProTech desktop software.\nContact us for full conversion:\n\n📞 076 645 9348\n📧 pixelprotechsolutions@gmail.com\n💬 wa.me/27766459348\n\nJohannesburg & Pretoria, South Africa`;
+  const note = `PixelProTech File Converter\n\nOriginal: ${file.name}\nRequested output: ${to.toUpperCase()}\n\nThis conversion pair requires PixelProTech desktop software.\nContact us for full conversion:\n\n📞 065 197 1461\n📧 pixelprotechsolutions@gmail.com\n💬 wa.me/27651971461\n\nJohannesburg & Pretoria, South Africa`;
   return { blob: new Blob([note], {type:'text/plain'}), filename: base + '_converted_note.txt' };
 }
 
