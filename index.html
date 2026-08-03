@@ -19,6 +19,12 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if (window['pdfjsLib']) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  }
+</script>
 
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -581,8 +587,10 @@ const FORMATS = [
   { id:'png',  name:'PNG',  icon:'🎨', desc:'Image',     accept:'.png,image/png' },
   { id:'txt',  name:'TXT',  icon:'🗒', desc:'Text',      accept:'.txt,text/plain' },
   { id:'csv',  name:'CSV',  icon:'📋', desc:'Data',      accept:'.csv,text/csv' },
-  { id:'pptx', name:'PPTX', icon:'📑', desc:'Slides',   accept:'.pptx,.ppt' },
 ];
+// NOTE: PPTX removed from v1 — no parsing library is loaded for it (would need
+// a PPTX reader like pptx-parser or a custom OOXML slide reader). Re-add only
+// once that conversion is actually implemented in doConvert(). See ROADMAP.
 
 const OUTPUT_MAP = {
   pdf:  [
@@ -622,10 +630,6 @@ const OUTPUT_MAP = {
     { id:'html', name:'HTML', desc:'Web table' },
     { id:'txt',  name:'TXT',  desc:'Plain text' },
   ],
-  pptx: [
-    { id:'pdf',  name:'PDF',  desc:'Presentation PDF' },
-    { id:'txt',  name:'TXT',  desc:'Extract text' },
-  ],
 };
 
 const FORMAT_REF = [
@@ -636,7 +640,6 @@ const FORMAT_REF = [
   { icon:'🎨', from:'PNG', to:'JPG · WEBP · PDF' },
   { icon:'🗒',  from:'TXT', to:'PDF · HTML · DOCX' },
   { icon:'📋', from:'CSV', to:'XLSX · JSON · HTML · TXT' },
-  { icon:'📑', from:'PPTX', to:'PDF · TXT' },
 ];
 
 const AI_MSGS = [
@@ -975,55 +978,124 @@ async function doConvert() {
     return { blob: new Blob([html], {type:'text/html'}), filename: base + '.html' };
   }
 
-  // TXT → DOCX (basic text wrap)
+  // TXT → DOCX (valid minimal DOCX via shared builder)
   if (from === 'txt' && to === 'docx') {
     const text = await readAsText(file);
-    // Simple plain text as DOCX XML
-    const escaped = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const paras = escaped.split('\n').map(l =>
-      `<w:p><w:r><w:t xml:space="preserve">${l}</w:t></w:r></w:p>`
-    ).join('');
-    const docXml = `<?xml version="1.0" encoding="UTF-8"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-<w:body>${paras}</w:body></w:document>`;
-    const zip = new JSZip();
-    zip.file('word/document.xml', docXml);
-    zip.file('[Content_Types].xml', `<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`);
-    zip.file('_rels/.rels', `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
-    zip.file('word/_rels/document.xml.rels', `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>`);
-    const buf = await zip.generateAsync({type:'arraybuffer'});
+    const buf = await buildDocx(text);
     return { blob: new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}), filename: base + '.docx' };
   }
 
-  // PDF → TXT (basic extraction note)
+  // PDF → TXT (real extraction via pdf.js)
   if (from === 'pdf' && to === 'txt') {
-    const bytes = await readAsArrayBuffer(file);
-    // Extract readable strings from PDF bytes
-    const str = new TextDecoder('latin1').decode(bytes);
-    const matches = [...str.matchAll(/\(([^\)]{3,})\)/g)].map(m => m[1]).filter(s => /[a-zA-Z]{3,}/.test(s));
-    const text = matches.join('\n') || '[PDF text extraction: For best results, use PixelProTech desktop app.\nFile: ' + file.name + ']';
+    const text = await pdfExtractText(file);
     return { blob: new Blob([text], {type:'text/plain'}), filename: base + '.txt' };
   }
 
-  // PDF → JPG/PNG (render note page)
+  // PDF → JPG/PNG (real page render via pdf.js, first page)
   if (from === 'pdf' && (to === 'jpg' || to === 'png')) {
-    const note = `PixelProTech File Converter\n\nOriginal: ${file.name}\nConverted to: ${to.toUpperCase()}\n\nFor full PDF→Image rendering, contact PixelProTech:\n065 197 1461 | pixelprotechsolutions@gmail.com`;
-    const canvas = document.createElement('canvas');
-    canvas.width = 800; canvas.height = 600;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#050a0e'; ctx.fillRect(0,0,800,600);
-    ctx.fillStyle = '#00e696'; ctx.font = 'bold 22px monospace';
-    ctx.fillText('PixelProTech Converter', 50, 80);
-    ctx.fillStyle = '#e0f0ff'; ctx.font = '16px monospace';
-    note.split('\n').forEach((l,i) => ctx.fillText(l, 50, 130 + i*28));
+    const canvas = await pdfRenderPageToCanvas(file, 1);
     const mimeType = to === 'jpg' ? 'image/jpeg' : 'image/png';
     const blob = await new Promise(r => canvas.toBlob(r, mimeType, 0.92));
-    return { blob, filename: base + '.' + to };
+    return { blob, filename: base + (to === 'jpg' ? '_p1.jpg' : '_p1.png') };
+  }
+
+  // PDF → DOCX (real text extraction via pdf.js, written into a valid minimal DOCX)
+  if (from === 'pdf' && to === 'docx') {
+    const text = await pdfExtractText(file);
+    const buf = await buildDocx(text);
+    return { blob: new Blob([buf], {type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}), filename: base + '.docx' };
   }
 
   // Fallback — package original with note
   const note = `PixelProTech File Converter\n\nOriginal: ${file.name}\nRequested output: ${to.toUpperCase()}\n\nThis conversion pair requires PixelProTech desktop software.\nContact us for full conversion:\n\n📞 065 197 1461\n📧 pixelprotechsolutions@gmail.com\n💬 wa.me/27651971461\n\nJohannesburg & Pretoria, South Africa`;
   return { blob: new Blob([note], {type:'text/plain'}), filename: base + '_converted_note.txt' };
+}
+
+// ─── PDF.JS HELPERS ────────────────────────────────────────────────────────────
+async function pdfExtractText(file) {
+  const ab = await readAsArrayBuffer(file);
+  const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+  let text = '';
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const pageText = content.items.map(it => it.str).join(' ');
+    text += pageText + '\n\n';
+  }
+  return text.trim() || '[No extractable text found — this PDF may be a scanned image. Use OCR instead.]';
+}
+
+async function pdfRenderPageToCanvas(file, pageNum) {
+  const ab = await readAsArrayBuffer(file);
+  const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+  const page = await pdf.getPage(Math.min(pageNum, pdf.numPages));
+  const viewport = page.getViewport({ scale: 2 });
+  const canvas = document.createElement('canvas');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext('2d');
+  await page.render({ canvasContext: ctx, viewport }).promise;
+  return canvas;
+}
+
+// ─── DOCX BUILDER (minimal but complete — includes the parts Word requires) ───
+async function buildDocx(text) {
+  const escaped = String(text).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const paras = escaped.split('\n').map(l =>
+    `<w:p><w:r><w:t xml:space="preserve">${l || ' '}</w:t></w:r></w:p>`
+  ).join('');
+  const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:body>${paras}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1417" w:right="1417" w:bottom="1417" w:left="1417"/></w:sectPr></w:body>
+</w:document>`;
+
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+<Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+<Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+</Types>`;
+
+  const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>`;
+
+  const docRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>`;
+
+  const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="22"/></w:rPr></w:rPrDefault></w:docDefaults>
+<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>
+</w:styles>`;
+
+  const coreXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/">
+<dc:creator>PixelProTech Document Engine</dc:creator><dc:title>Converted Document</dc:title>
+</cp:coreProperties>`;
+
+  const appXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties">
+<Application>PixelProTech Document Engine</Application>
+</Properties>`;
+
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml', contentTypes);
+  zip.file('_rels/.rels', rootRels);
+  zip.file('word/document.xml', documentXml);
+  zip.file('word/styles.xml', stylesXml);
+  zip.file('word/_rels/document.xml.rels', docRels);
+  zip.file('docProps/core.xml', coreXml);
+  zip.file('docProps/app.xml', appXml);
+  return zip.generateAsync({ type: 'arraybuffer' });
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
