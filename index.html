@@ -20,6 +20,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@pdfsmaller/pdf-encrypt-lite@1.2.0/dist/pdf-encrypt-lite.umd.js"></script>
 <script>
   if (window['pdfjsLib']) {
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -356,6 +357,50 @@ nav {
 }
 .reset-btn:hover { color: var(--green); }
 
+/* PDF TOOLKIT */
+.pdftk-tabs { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.pdftk-tab {
+  font-family: 'Share Tech Mono', monospace; font-size: 11px; letter-spacing: 1px;
+  color: var(--text-faint); background: var(--bg2); border: 1px solid var(--green-border);
+  border-radius: 8px; padding: 10px 16px; cursor: pointer; transition: all 0.2s;
+}
+.pdftk-tab:hover { color: var(--text); border-color: var(--green-border2); }
+.pdftk-tab.sel { color: var(--green); background: var(--green-faint); border-color: var(--green-border2); }
+.pdftk-panel { margin-bottom: 1.5rem; }
+.pdftk-filelist { margin-top: 1rem; display: flex; flex-direction: column; gap: 8px; }
+.pdftk-file-row {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg2); border: 1px solid var(--green-border); border-radius: 8px;
+  padding: 8px 12px; font-family: 'Share Tech Mono', monospace; font-size: 11px;
+}
+.pdftk-file-n { color: var(--green); width: 18px; flex-shrink: 0; }
+.pdftk-file-name { flex: 1; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pdftk-file-size { color: var(--text-faint); flex-shrink: 0; }
+.pdftk-file-btn {
+  background: transparent; border: 1px solid var(--green-border); border-radius: 6px;
+  color: var(--text-dim); width: 26px; height: 26px; cursor: pointer; flex-shrink: 0;
+}
+.pdftk-file-btn:hover { color: var(--green); border-color: var(--green-border2); }
+.pdftk-file-btn:disabled { opacity: 0.25; cursor: not-allowed; }
+.pdftk-range-row { margin-top: 1rem; }
+.pdftk-range-row label {
+  display: block; font-family: 'Share Tech Mono', monospace; font-size: 10px;
+  color: var(--text-faint); letter-spacing: 1px; margin-bottom: 8px;
+}
+.pdftk-input {
+  width: 100%; background: var(--bg2); border: 1px solid var(--green-border);
+  border-radius: 8px; padding: 12px 14px; color: var(--text);
+  font-family: 'Share Tech Mono', monospace; font-size: 13px;
+}
+.pdftk-input:focus { outline: none; border-color: var(--green-border2); }
+.pdftk-input::placeholder { color: var(--text-faint); }
+.pdftk-perms { display: flex; gap: 1.5rem; margin-top: 1rem; flex-wrap: wrap; }
+.pdftk-check {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  font-family: 'Share Tech Mono', monospace; font-size: 11px; color: var(--text-dim);
+}
+.pdftk-check input { width: 16px; height: 16px; accent-color: var(--green); cursor: pointer; }
+
 /* FEATURES SECTION */
 .features {
   position: relative; z-index: 2;
@@ -533,7 +578,120 @@ footer {
   </div>
 </section>
 
-<!-- FEATURES -->
+<!-- PDF TOOLKIT -->
+<section class="tool-section" id="pdftk">
+  <div class="section-tag">// PIXEL PDF TOOLKIT · PAGE-LEVEL OPERATIONS</div>
+
+  <div class="pdftk-tabs">
+    <button class="pdftk-tab sel" onclick="pdftkTab('merge',this)">MERGE PDFS</button>
+    <button class="pdftk-tab" onclick="pdftkTab('extract',this)">EXTRACT PAGES</button>
+    <button class="pdftk-tab" onclick="pdftkTab('delete',this)">DELETE PAGES</button>
+    <button class="pdftk-tab" onclick="pdftkTab('add',this)">ADD PAGES</button>
+    <button class="pdftk-tab" onclick="pdftkTab('lock',this)">LOCK PDF</button>
+  </div>
+
+  <!-- MERGE -->
+  <div class="panel pdftk-panel" id="pdftk-merge">
+    <div class="panel-hd">// MERGE — combine 2+ PDFs into one, in the order below</div>
+    <div class="drop-zone" id="dz-merge">
+      <input type="file" id="merge-input" accept=".pdf,application/pdf" multiple>
+      <div class="dz-icon">📚</div>
+      <div class="dz-main">Drop 2+ PDFs here or click to browse</div>
+      <div class="dz-sub">Reorder with ↑ ↓ below before merging</div>
+    </div>
+    <div class="pdftk-filelist" id="merge-filelist"></div>
+    <div class="conv-wrap"><button class="conv-btn" id="merge-btn" disabled onclick="runMerge()">▶ MERGE PDFS</button></div>
+  </div>
+
+  <!-- EXTRACT -->
+  <div class="panel pdftk-panel" id="pdftk-extract" style="display:none">
+    <div class="panel-hd">// EXTRACT — pull specific pages into a new PDF</div>
+    <div class="drop-zone" id="dz-extract">
+      <input type="file" id="extract-input" accept=".pdf,application/pdf">
+      <div class="dz-icon">📄</div>
+      <div class="dz-main">Drop a PDF here or click to browse</div>
+      <div class="dz-sub" id="extract-sub">Processed locally in your browser</div>
+    </div>
+    <div class="pdftk-range-row">
+      <label>PAGES TO EXTRACT (e.g. 1-3,5,8-10)</label>
+      <input type="text" class="pdftk-input" id="extract-range" placeholder="1-3,5,8-10">
+    </div>
+    <div class="conv-wrap"><button class="conv-btn" id="extract-btn" disabled onclick="runExtract()">▶ EXTRACT PAGES</button></div>
+  </div>
+
+  <!-- DELETE -->
+  <div class="panel pdftk-panel" id="pdftk-delete" style="display:none">
+    <div class="panel-hd">// DELETE — remove specific pages, keep the rest</div>
+    <div class="drop-zone" id="dz-delete">
+      <input type="file" id="delete-input" accept=".pdf,application/pdf">
+      <div class="dz-icon">🗑</div>
+      <div class="dz-main">Drop a PDF here or click to browse</div>
+      <div class="dz-sub" id="delete-sub">Processed locally in your browser</div>
+    </div>
+    <div class="pdftk-range-row">
+      <label>PAGES TO DELETE (e.g. 2,4-6)</label>
+      <input type="text" class="pdftk-input" id="delete-range" placeholder="2,4-6">
+    </div>
+    <div class="conv-wrap"><button class="conv-btn" id="delete-btn" disabled onclick="runDelete()">▶ DELETE PAGES</button></div>
+  </div>
+
+  <!-- ADD -->
+  <div class="panel pdftk-panel" id="pdftk-add" style="display:none">
+    <div class="panel-hd">// ADD — insert another PDF's pages into a base PDF</div>
+    <div class="drop-zone" id="dz-add-base">
+      <input type="file" id="add-base-input" accept=".pdf,application/pdf">
+      <div class="dz-icon">📄</div>
+      <div class="dz-main">Base PDF — the one you're adding into</div>
+      <div class="dz-sub" id="add-base-sub">Processed locally in your browser</div>
+    </div>
+    <div class="drop-zone" id="dz-add-new">
+      <input type="file" id="add-new-input" accept=".pdf,application/pdf">
+      <div class="dz-icon">➕</div>
+      <div class="dz-main">PDF with the pages to insert</div>
+      <div class="dz-sub" id="add-new-sub">Processed locally in your browser</div>
+    </div>
+    <div class="pdftk-range-row">
+      <label>INSERT AFTER PAGE (blank = append at end, 0 = insert at start)</label>
+      <input type="text" class="pdftk-input" id="add-position" placeholder="e.g. 3">
+    </div>
+    <div class="conv-wrap"><button class="conv-btn" id="add-btn" disabled onclick="runAdd()">▶ ADD PAGES</button></div>
+  </div>
+
+  <!-- LOCK -->
+  <div class="panel pdftk-panel" id="pdftk-lock" style="display:none">
+    <div class="panel-hd">// LOCK — password-protect a PDF (real RC4-128, opens in any PDF reader)</div>
+    <div class="drop-zone" id="dz-lock">
+      <input type="file" id="lock-input" accept=".pdf,application/pdf">
+      <div class="dz-icon">🔒</div>
+      <div class="dz-main">Drop a PDF here or click to browse</div>
+      <div class="dz-sub" id="lock-sub">Processed locally in your browser — password never leaves your device</div>
+    </div>
+    <div class="pdftk-range-row">
+      <label>PASSWORD TO OPEN</label>
+      <input type="password" class="pdftk-input" id="lock-pass" placeholder="Enter a password">
+    </div>
+    <div class="pdftk-range-row">
+      <label>CONFIRM PASSWORD</label>
+      <input type="password" class="pdftk-input" id="lock-pass-confirm" placeholder="Re-enter the same password">
+    </div>
+    <div class="pdftk-perms">
+      <label class="pdftk-check"><input type="checkbox" id="lock-allow-print" checked> Allow printing</label>
+      <label class="pdftk-check"><input type="checkbox" id="lock-allow-copy" checked> Allow copying/extracting text</label>
+    </div>
+    <div class="info-box show">⚠ This uses RC4-128, the standard PDF security handler supported by every PDF reader. It's real password protection — not military-grade AES-256. Good for keeping casual/unauthorized viewers out of a document; don't rely on it alone for highly sensitive files.</div>
+    <div class="conv-wrap"><button class="conv-btn" id="lock-btn" disabled onclick="runLock()">▶ LOCK PDF</button></div>
+  </div>
+
+  <!-- SHARED RESULT -->
+  <div class="result-panel" id="pdftk-result">
+    <div class="result-glyph">✅</div>
+    <div class="result-title" id="pdftk-result-title">DONE</div>
+    <div class="result-sub" id="pdftk-result-sub">FILE READY</div>
+    <div class="result-actions">
+      <a class="dl-btn" id="pdftk-dl-btn" href="#">⬇ Download File</a>
+    </div>
+  </div>
+</section>
 <section class="features">
   <div class="section-tag">// WHY PIXELPROTECH CONVERTER</div>
   <div class="feat-grid">
@@ -1168,6 +1326,249 @@ function resetTool() {
   document.getElementById('s1').classList.add('active');
   typeMsg(AI_MSGS[0]);
   window.scrollTo({top: document.getElementById('tool').offsetTop - 80, behavior:'smooth'});
+}
+
+// ─── PDF TOOLKIT ────────────────────────────────────────────────────────────
+function pdftkTab(name, el) {
+  document.querySelectorAll('.pdftk-tab').forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel');
+  document.querySelectorAll('.pdftk-panel').forEach(p => p.style.display = 'none');
+  document.getElementById('pdftk-' + name).style.display = 'block';
+  document.getElementById('pdftk-result').classList.remove('show');
+}
+
+function wireDropZone(dzId, inputId, onFiles) {
+  const dz = document.getElementById(dzId);
+  const input = document.getElementById(inputId);
+  input.addEventListener('change', e => onFiles([...e.target.files]));
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('drag-over');
+    onFiles([...e.dataTransfer.files]);
+  });
+}
+
+function parsePageRange(str, total) {
+  const result = new Set();
+  String(str).split(',').forEach(part => {
+    part = part.trim();
+    if (!part) return;
+    const range = part.match(/^(\d+)\s*-\s*(\d+)$/);
+    if (range) {
+      let a = parseInt(range[1], 10), b = parseInt(range[2], 10);
+      if (a > b) [a, b] = [b, a];
+      for (let n = a; n <= b; n++) if (n >= 1 && n <= total) result.add(n - 1);
+    } else {
+      const n = parseInt(part, 10);
+      if (!isNaN(n) && n >= 1 && n <= total) result.add(n - 1);
+    }
+  });
+  return [...result].sort((a, b) => a - b);
+}
+
+function showPdftkResult(blob, filename, title, sub) {
+  const url = URL.createObjectURL(blob);
+  document.getElementById('pdftk-result-title').textContent = title;
+  document.getElementById('pdftk-result-sub').textContent = filename.toUpperCase() + ' · ' + sub + ' · ' + (blob.size / 1024).toFixed(1) + ' KB';
+  const dl = document.getElementById('pdftk-dl-btn');
+  dl.href = url; dl.download = filename;
+  document.getElementById('pdftk-result').classList.add('show');
+}
+
+// MERGE
+let mergeFiles = [];
+wireDropZone('dz-merge', 'merge-input', files => {
+  const pdfs = files.filter(f => f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
+  mergeFiles = mergeFiles.concat(pdfs);
+  renderMergeList();
+});
+function renderMergeList() {
+  const list = document.getElementById('merge-filelist');
+  list.innerHTML = mergeFiles.map((f, i) => `
+    <div class="pdftk-file-row">
+      <span class="pdftk-file-n">${i + 1}</span>
+      <span class="pdftk-file-name">${f.name}</span>
+      <span class="pdftk-file-size">${(f.size / 1024).toFixed(1)} KB</span>
+      <button class="pdftk-file-btn" onclick="moveMergeFile(${i},-1)" ${i === 0 ? 'disabled' : ''}>↑</button>
+      <button class="pdftk-file-btn" onclick="moveMergeFile(${i},1)" ${i === mergeFiles.length - 1 ? 'disabled' : ''}>↓</button>
+      <button class="pdftk-file-btn" onclick="removeMergeFile(${i})">✕</button>
+    </div>`).join('');
+  document.getElementById('merge-btn').disabled = mergeFiles.length < 2;
+}
+function moveMergeFile(i, dir) {
+  const j = i + dir;
+  if (j < 0 || j >= mergeFiles.length) return;
+  [mergeFiles[i], mergeFiles[j]] = [mergeFiles[j], mergeFiles[i]];
+  renderMergeList();
+}
+function removeMergeFile(i) { mergeFiles.splice(i, 1); renderMergeList(); }
+
+async function runMerge() {
+  if (mergeFiles.length < 2) return;
+  const btn = document.getElementById('merge-btn');
+  btn.disabled = true; btn.textContent = '⏳ MERGING...';
+  try {
+    const merged = await PDFLib.PDFDocument.create();
+    for (const f of mergeFiles) {
+      const bytes = await readAsArrayBuffer(f);
+      const src = await PDFLib.PDFDocument.load(bytes);
+      const pages = await merged.copyPages(src, src.getPageIndices());
+      pages.forEach(p => merged.addPage(p));
+    }
+    const bytes = await merged.save();
+    showPdftkResult(new Blob([bytes], {type:'application/pdf'}), 'merged.pdf', 'MERGE COMPLETE', mergeFiles.length + ' files combined');
+  } catch (err) {
+    alert('Merge failed: ' + err.message + ' — check that every file is a valid, non-password-protected PDF.');
+  }
+  btn.disabled = false; btn.textContent = '▶ MERGE PDFS';
+}
+
+// EXTRACT
+let extractFile = null;
+wireDropZone('dz-extract', 'extract-input', files => { if (files[0]) setExtractFile(files[0]); });
+function setExtractFile(f) {
+  extractFile = f;
+  document.getElementById('extract-sub').textContent = f.name + ' · ' + (f.size / 1024).toFixed(1) + ' KB loaded';
+  checkExtractBtn();
+}
+document.getElementById('extract-range').addEventListener('input', checkExtractBtn);
+function checkExtractBtn() {
+  document.getElementById('extract-btn').disabled = !(extractFile && document.getElementById('extract-range').value.trim());
+}
+async function runExtract() {
+  const btn = document.getElementById('extract-btn');
+  btn.disabled = true; btn.textContent = '⏳ EXTRACTING...';
+  try {
+    const bytes = await readAsArrayBuffer(extractFile);
+    const src = await PDFLib.PDFDocument.load(bytes);
+    const total = src.getPageCount();
+    const indices = parsePageRange(document.getElementById('extract-range').value, total);
+    if (!indices.length) throw new Error('No valid pages in that range — document has ' + total + ' pages');
+    const out = await PDFLib.PDFDocument.create();
+    const pages = await out.copyPages(src, indices);
+    pages.forEach(p => out.addPage(p));
+    const outBytes = await out.save();
+    const base = extractFile.name.replace(/\.pdf$/i, '');
+    showPdftkResult(new Blob([outBytes], {type:'application/pdf'}), base + '_extracted.pdf', 'EXTRACT COMPLETE', indices.length + ' pages extracted');
+  } catch (err) {
+    alert('Extract failed: ' + err.message);
+  }
+  btn.disabled = false; btn.textContent = '▶ EXTRACT PAGES';
+}
+
+// DELETE
+let deleteFile = null;
+wireDropZone('dz-delete', 'delete-input', files => { if (files[0]) setDeleteFile(files[0]); });
+function setDeleteFile(f) {
+  deleteFile = f;
+  document.getElementById('delete-sub').textContent = f.name + ' · ' + (f.size / 1024).toFixed(1) + ' KB loaded';
+  checkDeleteBtn();
+}
+document.getElementById('delete-range').addEventListener('input', checkDeleteBtn);
+function checkDeleteBtn() {
+  document.getElementById('delete-btn').disabled = !(deleteFile && document.getElementById('delete-range').value.trim());
+}
+async function runDelete() {
+  const btn = document.getElementById('delete-btn');
+  btn.disabled = true; btn.textContent = '⏳ DELETING...';
+  try {
+    const bytes = await readAsArrayBuffer(deleteFile);
+    const src = await PDFLib.PDFDocument.load(bytes);
+    const total = src.getPageCount();
+    const toDelete = new Set(parsePageRange(document.getElementById('delete-range').value, total));
+    const keep = [];
+    for (let i = 0; i < total; i++) if (!toDelete.has(i)) keep.push(i);
+    if (!keep.length) throw new Error('That range covers every page — nothing would be left');
+    const out = await PDFLib.PDFDocument.create();
+    const pages = await out.copyPages(src, keep);
+    pages.forEach(p => out.addPage(p));
+    const outBytes = await out.save();
+    const base = deleteFile.name.replace(/\.pdf$/i, '');
+    showPdftkResult(new Blob([outBytes], {type:'application/pdf'}), base + '_edited.pdf', 'DELETE COMPLETE', toDelete.size + ' pages removed, ' + keep.length + ' kept');
+  } catch (err) {
+    alert('Delete failed: ' + err.message);
+  }
+  btn.disabled = false; btn.textContent = '▶ DELETE PAGES';
+}
+
+// ADD
+let addBaseFile = null, addNewFile = null;
+wireDropZone('dz-add-base', 'add-base-input', files => { if (files[0]) setAddBase(files[0]); });
+wireDropZone('dz-add-new', 'add-new-input', files => { if (files[0]) setAddNew(files[0]); });
+function setAddBase(f) {
+  addBaseFile = f;
+  document.getElementById('add-base-sub').textContent = f.name + ' · ' + (f.size / 1024).toFixed(1) + ' KB loaded';
+  checkAddBtn();
+}
+function setAddNew(f) {
+  addNewFile = f;
+  document.getElementById('add-new-sub').textContent = f.name + ' · ' + (f.size / 1024).toFixed(1) + ' KB loaded';
+  checkAddBtn();
+}
+function checkAddBtn() {
+  document.getElementById('add-btn').disabled = !(addBaseFile && addNewFile);
+}
+async function runAdd() {
+  const btn = document.getElementById('add-btn');
+  btn.disabled = true; btn.textContent = '⏳ ADDING...';
+  try {
+    const baseBytes = await readAsArrayBuffer(addBaseFile);
+    const newBytes = await readAsArrayBuffer(addNewFile);
+    const base = await PDFLib.PDFDocument.load(baseBytes);
+    const toAdd = await PDFLib.PDFDocument.load(newBytes);
+    const total = base.getPageCount();
+    const posRaw = document.getElementById('add-position').value.trim();
+    let pos = posRaw === '' ? total : Math.max(0, Math.min(total, parseInt(posRaw, 10) || 0));
+    const addedPages = await base.copyPages(toAdd, toAdd.getPageIndices());
+    addedPages.forEach((p, idx) => base.insertPage(pos + idx, p));
+    const outBytes = await base.save();
+    const baseName = addBaseFile.name.replace(/\.pdf$/i, '');
+    showPdftkResult(new Blob([outBytes], {type:'application/pdf'}), baseName + '_combined.pdf', 'ADD COMPLETE', addedPages.length + ' pages inserted at position ' + (pos + 1));
+  } catch (err) {
+    alert('Add failed: ' + err.message);
+  }
+  btn.disabled = false; btn.textContent = '▶ ADD PAGES';
+}
+
+// LOCK
+let lockFile = null;
+wireDropZone('dz-lock', 'lock-input', files => { if (files[0]) setLockFile(files[0]); });
+function setLockFile(f) {
+  lockFile = f;
+  document.getElementById('lock-sub').textContent = f.name + ' · ' + (f.size / 1024).toFixed(1) + ' KB loaded';
+  checkLockBtn();
+}
+['lock-pass', 'lock-pass-confirm'].forEach(id => document.getElementById(id).addEventListener('input', checkLockBtn));
+function checkLockBtn() {
+  const pass = document.getElementById('lock-pass').value;
+  document.getElementById('lock-btn').disabled = !(lockFile && pass && pass.length >= 4);
+}
+async function runLock() {
+  const pass = document.getElementById('lock-pass').value;
+  const confirm = document.getElementById('lock-pass-confirm').value;
+  if (pass !== confirm) { alert('Passwords don\'t match — check both fields.'); return; }
+  if (pass.length < 4) { alert('Use at least 4 characters.'); return; }
+  const btn = document.getElementById('lock-btn');
+  btn.disabled = true; btn.textContent = '⏳ LOCKING...';
+  try {
+    if (typeof PDFEncryptLite === 'undefined') throw new Error('Encryption library failed to load — check your internet connection and try again.');
+    const bytes = await readAsArrayBuffer(lockFile);
+    const opts = {
+      allowPrinting: document.getElementById('lock-allow-print').checked,
+      allowCopying: document.getElementById('lock-allow-copy').checked,
+    };
+    const encryptedBytes = await PDFEncryptLite.encryptPDF(bytes, pass, opts);
+    const base = lockFile.name.replace(/\.pdf$/i, '');
+    showPdftkResult(new Blob([encryptedBytes], {type:'application/pdf'}), base + '_locked.pdf', 'LOCK COMPLETE', 'Password required to open');
+  } catch (err) {
+    if (err && err.name === 'AlreadyEncryptedError') {
+      alert('This PDF is already password-protected — remove the existing password first.');
+    } else {
+      alert('Lock failed: ' + err.message);
+    }
+  }
+  btn.disabled = false; btn.textContent = '▶ LOCK PDF';
 }
 
 init();
